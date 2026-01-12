@@ -18,6 +18,7 @@
 {
   "imports": {
     "react": "https://esm.sh/react@^19.2.3",
+    "react-dom/client": "https://esm.sh/react-dom@^19.2.3/client",
     "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
     "react/": "https://esm.sh/react@^19.2.3/",
     "lucide-react": "https://esm.sh/lucide-react@^0.562.0",
@@ -25,6 +26,134 @@
     "react-router-dom": "https://esm.sh/react-router-dom@6.22.3"
   }
 }
+</script>
+<script type="module">
+  import React, { useEffect, useState } from "react";
+  import { createRoot } from "react-dom/client";
+
+  function App() {
+    const [kpis, setKpis] = useState([]);
+    const [tests, setTests] = useState([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+      // Fetch KPIs
+      fetch(`${API_BASE}/overview`)
+        .then(r => r.json())
+        .then(data => Array.isArray(data) && setKpis(data))
+        .catch(() => setKpis([]));
+
+      // Fetch tests
+      fetch(`${API_BASE}/tests?limit=25&offset=0`)
+        .then(r => r.json())
+        .then(d => {
+          setTests(Array.isArray(d?.results) ? d.results : []);
+          setLoading(false);
+        })
+        .catch(() => {
+          setTests([]);
+          setLoading(false);
+        });
+    }, []);
+
+    return React.createElement(
+      "div",
+      { className: "space-y-6 p-6 max-w-7xl mx-auto" },
+
+      // Header
+      React.createElement(
+        "div",
+        null,
+        React.createElement("h1", { className: "text-3xl font-bold text-gray-900" }, "EDOS Analytics"),
+        React.createElement(
+          "p",
+          { className: "text-gray-600 mt-1" },
+          "Diagnostic test catalogue powered by Cloudflare Workers"
+        )
+      ),
+
+      // KPI cards
+      React.createElement(
+        "div",
+        { className: "grid grid-cols-1 md:grid-cols-3 gap-4" },
+        kpis.map(k =>
+          React.createElement(
+            "div",
+            {
+              key: k.label,
+              className: "bg-white p-5 rounded-xl shadow-sm border border-gray-200"
+            },
+            React.createElement(
+              "div",
+              { className: "text-sm text-gray-500 font-medium uppercase tracking-wide" },
+              k.label
+            ),
+            React.createElement(
+              "div",
+              { className: "text-2xl font-bold text-gray-900 mt-1" },
+              k.value.toLocaleString()
+            )
+          )
+        )
+      ),
+
+      // Tests table
+      React.createElement("h2", { className: "text-xl font-bold text-gray-900 mt-8" }, "Test Catalogue"),
+
+      loading
+        ? React.createElement(
+            "div",
+            { className: "text-gray-500 py-8 text-center" },
+            "Loading tests..."
+          )
+        : React.createElement(
+            "div",
+            { className: "overflow-hidden bg-white rounded-xl shadow-sm border border-gray-200" },
+            React.createElement(
+              "div", 
+              { className: "overflow-x-auto" },
+              React.createElement(
+                "table",
+                { className: "w-full text-sm text-left" },
+                React.createElement(
+                  "thead",
+                  { className: "bg-gray-50 border-b border-gray-200" },
+                  React.createElement(
+                    "tr",
+                    null,
+                    ["Code", "Test Name", "Department", "Sample", "MRP"].map(h =>
+                      React.createElement(
+                        "th",
+                        { key: h, className: "px-6 py-3 font-semibold text-gray-500 uppercase tracking-wider" },
+                        h
+                      )
+                    )
+                  )
+                ),
+                React.createElement(
+                  "tbody",
+                  { className: "divide-y divide-gray-100" },
+                  tests.map(t =>
+                    React.createElement(
+                      "tr",
+                      { key: t.id, className: "hover:bg-gray-50 transition-colors" },
+                      React.createElement("td", { className: "px-6 py-4 font-mono text-blue-600 font-medium" }, t.test_code),
+                      React.createElement("td", { className: "px-6 py-4 font-medium text-gray-900" }, t.test_name),
+                      React.createElement("td", { className: "px-6 py-4 text-gray-600" }, t.department_name || t.department || "—"),
+                      React.createElement("td", { className: "px-6 py-4 text-gray-600" }, t.sampleType_name || "—"),
+                      React.createElement("td", { className: "px-6 py-4 font-bold text-gray-900" }, t.mrp ? `₹${t.mrp}` : "—")
+                    )
+                  )
+                )
+              )
+            )
+          )
+    );
+  }
+
+  createRoot(document.getElementById("root")).render(
+    React.createElement(App)
+  );
 </script>
 </head>
   <body>
