@@ -1,0 +1,5 @@
+{
+  "name": "EDOS Analytics",
+  "description": "Production-grade healthcare analytics dashboard powered by Cloudflare Workers.",
+  "requestFramePermissions": []
+}
