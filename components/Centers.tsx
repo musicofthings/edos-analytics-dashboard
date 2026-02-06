@@ -4,8 +4,7 @@ import { DiagnosticCenter } from '../types';
 import { LoadingSpinner } from './ui/LoadingSpinner';
 import { MapPin, Search, ArrowRight } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-
-const BASE_URL = 'https://edos-analytics-api.shibi-kannan.workers.dev';
+import { apiFetch } from '../services/api';
 
 export const Centers: React.FC = () => {
   const [centers, setCenters] = useState<DiagnosticCenter[]>([]);
@@ -15,21 +14,26 @@ export const Centers: React.FC = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
+    const controller = new AbortController();
+
     const fetchCenters = async () => {
       try {
         setLoading(true);
-        const response = await fetch(`${BASE_URL}/centers`);
-        if (!response.ok) throw new Error('Failed to fetch centers');
-        const data = await response.json();
+        const data = await apiFetch<DiagnosticCenter[]>('/centers', controller.signal);
         setCenters(data);
         setError(null);
       } catch (err) {
-        setError("Failed to fetch centers.");
+        if (!controller.signal.aborted) {
+          setError("Failed to fetch centers.");
+        }
       } finally {
-        setLoading(false);
+        if (!controller.signal.aborted) {
+          setLoading(false);
+        }
       }
     };
     fetchCenters();
+    return () => controller.abort();
   }, []);
 
   // Filter Logic

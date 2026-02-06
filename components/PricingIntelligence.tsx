@@ -1,13 +1,12 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { PricingEntry } from '../types';
 import { LoadingSpinner } from './ui/LoadingSpinner';
-import { Search, Filter, X, BarChart3, Table as TableIcon, GitCompare, Info, Plus, Check } from 'lucide-react';
-import { 
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
-  BarChart, Bar, Legend, Cell, PieChart, Pie 
+import { Search, Filter, X, BarChart3, Table as TableIcon, GitCompare, Plus, Check } from 'lucide-react';
+import {
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  BarChart, Bar, Legend, Cell, PieChart, Pie
 } from 'recharts';
-
-const BASE_URL = 'https://edos-analytics-api.shibi-kannan.workers.dev';
+import { apiFetch } from '../services/api';
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#6366f1', '#14b8a6', '#f97316', '#84cc16'];
 
 interface AnalyticsMetrics {
@@ -52,21 +51,26 @@ export const PricingIntelligence: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    const controller = new AbortController();
+
     const fetchPricing = async () => {
       try {
         setLoading(true);
-        const response = await fetch(`${BASE_URL}/pricing/enriched`);
-        if (!response.ok) throw new Error('Failed to fetch pricing data');
-        const pricingData = await response.json();
+        const pricingData = await apiFetch<PricingEntry[]>('/pricing/enriched', controller.signal);
         setData(pricingData);
         setError(null);
       } catch (err) {
-        setError("Failed to load enriched pricing data.");
+        if (!controller.signal.aborted) {
+          setError("Failed to load enriched pricing data.");
+        }
       } finally {
-        setLoading(false);
+        if (!controller.signal.aborted) {
+          setLoading(false);
+        }
       }
     };
     fetchPricing();
+    return () => controller.abort();
   }, []);
 
   // --- Aggregation & Filtering Engine ---
@@ -186,9 +190,9 @@ export const PricingIntelligence: React.FC = () => {
     });
   };
 
-  const renderCustomBarLabel = (props: any) => {
+  const renderCustomBarLabel = (props: any): React.ReactElement<SVGElement> => {
       const { x, y, width, value } = props;
-      if (width < 20) return null; // Hide if bar is too small
+      if (width < 20) return <text />; // Hidden if bar is too small
       return <text x={x + width / 2} y={y - 5} fill="#666" textAnchor="middle" fontSize={10}>₹{`${value}`}</text>;
   };
 
