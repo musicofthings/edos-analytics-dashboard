@@ -2,9 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { DiagnosticTest, PaginationEnvelope } from '../types';
 import { LoadingSpinner } from './ui/LoadingSpinner';
-import { ChevronLeft, ChevronRight, Search, Download, Filter, ChevronDown, ChevronUp, Beaker, Clock, FileText, Info } from 'lucide-react';
-
-const BASE_URL = 'https://edos-analytics-api.shibi-kannan.workers.dev';
+import { ChevronLeft, ChevronRight, Search, Download, ChevronDown, ChevronUp, Beaker, Clock, FileText, Info } from 'lucide-react';
+import { apiFetch, BASE_URL } from '../services/api';
 
 // Filter option types
 interface FilterOptions {
@@ -51,17 +50,15 @@ export const TestExplorer: React.FC = () => {
 
   // 1. Fetch Filter Options on Mount
   useEffect(() => {
+    const controller = new AbortController();
+
     const fetchFilters = async () => {
       try {
-        const [deptRes, specRes, disRes] = await Promise.all([
-          fetch(`${BASE_URL}/filters/departments`),
-          fetch(`${BASE_URL}/filters/specimens`),
-          fetch(`${BASE_URL}/filters/diseases`)
+        const [departments, specimens, diseases] = await Promise.all([
+          apiFetch<string[]>('/filters/departments', controller.signal),
+          apiFetch<string[]>('/filters/specimens', controller.signal),
+          apiFetch<string[]>('/filters/diseases', controller.signal),
         ]);
-
-        const departments = await deptRes.json();
-        const specimens = await specRes.json();
-        const diseases = await disRes.json();
 
         setFilterOptions({
           departments: Array.isArray(departments) ? departments : [],
@@ -69,47 +66,48 @@ export const TestExplorer: React.FC = () => {
           diseases: Array.isArray(diseases) ? diseases : []
         });
       } catch (err) {
-        console.error("Failed to load filter metadata", err);
+        if (!controller.signal.aborted) {
+          console.error("Failed to load filter metadata", err);
+        }
       }
     };
     fetchFilters();
+    return () => controller.abort();
   }, []);
 
   // 2. Fetch Tests when params change
   useEffect(() => {
-    // Reset page when filters change (but not when page changes)
-    // This effect handles the fetching logic based on current state
+    const controller = new AbortController();
+
     const fetchTests = async () => {
       try {
         setLoading(true);
         const offset = (page - 1) * limit;
-        
-        // Construct API URL strictly
+
         const params = new URLSearchParams();
         params.append('limit', limit.toString());
         params.append('offset', offset.toString());
         if (query.trim()) params.append('q', query.trim());
         if (cityId.trim()) params.append('cityId', cityId.trim());
         if (department) params.append('department', department);
-        // Note: API expects IDs usually, but prompt implies names returned by filters. 
-        // We pass the selected value.
-        if (specimen) params.append('specimenId', specimen); 
+        if (specimen) params.append('specimenId', specimen);
         if (disease) params.append('diseaseId', disease);
 
-        const response = await fetch(`${BASE_URL}/tests?${params.toString()}`);
-        
-        if (!response.ok) {
-           throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        const jsonData = await response.json();
+        const jsonData = await apiFetch<PaginationEnvelope<DiagnosticTest>>(
+          `/tests?${params.toString()}`,
+          controller.signal,
+        );
         setData(jsonData);
         setError(null);
       } catch (err) {
-        setError("Failed to fetch tests catalog. Please verify connection to Cloudflare Worker.");
-        console.error(err);
+        if (!controller.signal.aborted) {
+          setError("Failed to fetch tests catalog. Please verify connection to Cloudflare Worker.");
+          console.error(err);
+        }
       } finally {
-        setLoading(false);
+        if (!controller.signal.aborted) {
+          setLoading(false);
+        }
       }
     };
 
@@ -117,7 +115,10 @@ export const TestExplorer: React.FC = () => {
         fetchTests();
     }, 300); // Debounce
 
-    return () => clearTimeout(timeoutId);
+    return () => {
+      clearTimeout(timeoutId);
+      controller.abort();
+    };
   }, [page, limit, query, cityId, department, specimen, disease]);
 
   // Reset page when filters change

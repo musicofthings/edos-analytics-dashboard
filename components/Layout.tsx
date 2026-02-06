@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Beaker, Map, DollarSign, Menu, ExternalLink, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Home } from 'lucide-react';
+import { LayoutDashboard, Beaker, Map, DollarSign, Menu, ExternalLink, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Home, X } from 'lucide-react';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -21,6 +21,7 @@ const NavLink: React.FC<{ to: string; icon: React.ReactNode; label: string; acti
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const location = useLocation();
   const navigate = useNavigate();
+  const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
 
   const navItems = [
     { path: '/', label: 'Overview', icon: <LayoutDashboard size={20} /> },
@@ -93,13 +94,51 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
 
       {/* Mobile Header */}
       <div className="md:hidden fixed w-full bg-white border-b border-gray-200 z-20 h-16 flex items-center px-4 justify-between">
-         <img 
-            src="https://www.apollodiagnostics.in/assets/images/logo.png" 
-            alt="Apollo Diagnostics" 
+         <img
+            src="https://www.apollodiagnostics.in/assets/images/logo.png"
+            alt="Apollo Diagnostics"
             className="h-10 w-auto object-contain"
+            onError={(e) => {
+              e.currentTarget.style.display = 'none';
+              const parent = e.currentTarget.parentElement;
+              if (parent) {
+                const span = document.createElement('span');
+                span.className = 'font-bold text-blue-800';
+                span.textContent = 'EDOS Analytics';
+                parent.insertBefore(span, parent.firstChild);
+              }
+            }}
           />
-         <button className="p-2"><Menu /></button>
+         <button className="p-2" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
+           {mobileMenuOpen ? <X size={24} /> : <Menu />}
+         </button>
       </div>
+
+      {/* Mobile Menu Overlay */}
+      {mobileMenuOpen && (
+        <div className="md:hidden fixed inset-0 z-30 bg-black/50" onClick={() => setMobileMenuOpen(false)}>
+          <nav
+            className="bg-white w-64 h-full pt-20 px-4 space-y-1 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {navItems.map((item) => (
+              <Link
+                key={item.path}
+                to={item.path}
+                onClick={() => setMobileMenuOpen(false)}
+                className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
+                  location.pathname === item.path
+                    ? 'bg-blue-50 text-blue-700'
+                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                }`}
+              >
+                {item.icon}
+                <span className="font-medium">{item.label}</span>
+              </Link>
+            ))}
+          </nav>
+        </div>
+      )}
 
       {/* Main Content */}
       <main className="flex-1 md:ml-64 p-6 pt-20 md:pt-6">

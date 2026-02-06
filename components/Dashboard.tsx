@@ -4,8 +4,7 @@ import { OverviewItem } from '../types';
 import { StatCard } from './ui/StatCard';
 import { LoadingSpinner } from './ui/LoadingSpinner';
 import { Activity, Database, DollarSign, MapPin, TrendingUp, X, ShieldCheck, Lock } from 'lucide-react';
-
-const BASE_URL = 'https://edos-analytics-api.shibi-kannan.workers.dev';
+import { apiFetch, BASE_URL } from '../services/api';
 
 export const Dashboard: React.FC = () => {
   const [kpis, setKpis] = useState<OverviewItem[]>([]);
@@ -21,28 +20,28 @@ export const Dashboard: React.FC = () => {
   const [listLoading, setListLoading] = useState(false);
 
   useEffect(() => {
+    const controller = new AbortController();
+
     const fetchData = async () => {
       try {
         setLoading(true);
-        // Direct fetch to /overview as per strict backend specs
-        const response = await fetch(`${BASE_URL}/overview`);
-        
-        if (!response.ok) {
-           throw new Error('Overview fetch failed');
-        }
-
-        const data = await response.json();
+        const data = await apiFetch<OverviewItem[]>('/overview', controller.signal);
         setKpis(data);
         setError(null);
       } catch (err) {
-        setError('Unable to load executive overview.');
-        console.error(err);
+        if (!controller.signal.aborted) {
+          setError('Unable to load executive overview.');
+          console.error(err);
+        }
       } finally {
-        setLoading(false);
+        if (!controller.signal.aborted) {
+          setLoading(false);
+        }
       }
     };
 
     fetchData();
+    return () => controller.abort();
   }, []);
 
   const getIcon = (label: string) => {
@@ -62,8 +61,7 @@ export const Dashboard: React.FC = () => {
         setModalOpen(true);
         setListLoading(true);
         try {
-            const res = await fetch(`${BASE_URL}/filters/specimens`);
-            const data = await res.json();
+            const data = await apiFetch<string[]>('/filters/specimens');
             setModalItems(Array.isArray(data) ? data : []);
         } catch (e) {
             console.error(e);
@@ -76,8 +74,7 @@ export const Dashboard: React.FC = () => {
         setModalOpen(true);
         setListLoading(true);
         try {
-            const res = await fetch(`${BASE_URL}/filters/departments`);
-            const data = await res.json();
+            const data = await apiFetch<string[]>('/filters/departments');
             setModalItems(Array.isArray(data) ? data : []);
         } catch (e) {
             console.error(e);
@@ -124,7 +121,7 @@ export const Dashboard: React.FC = () => {
               <StatCard
                 key={idx}
                 title={kpi.label}
-                value={kpi.value.toLocaleString()}
+                value={kpi.value != null ? kpi.value.toLocaleString() : '—'}
                 icon={getIcon(kpi.label)}
                 onClick={() => handleCardClick(kpi.label)}
               />
